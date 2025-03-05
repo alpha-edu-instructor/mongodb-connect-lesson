@@ -1,69 +1,70 @@
 import express from "express";
-import { MongoClient, ObjectId } from "mongodb";
+import mongoose from "mongoose";
+import { User } from "./models/User.js";
 
 const app = express();
-const PORT = 8000;
-const connectionString = "mongodb://127.0.0.1:27017";
-const client = new MongoClient(connectionString);
-
-app.use(express.json());
-
-let db;
+const PORT = 3000;
+const connectionString = "mongodb://127.0.0.1:27017/lesson";
 
 async function connectDatabase() {
   try {
-    await client.connect();
-    db = client.db("lesson");
-    console.log("База данных успешно подключена!");
+    await mongoose.connect(connectionString);
+    console.log("Подключено к базе данных!");
   } catch (error) {
-    console.log("Не удалось подключиться к базе данных!");
+    console.log("Error!");
   }
 }
+
+app.use(express.json());
 
 app.get("/", (req, res) => {
   res.send("Hello, World!");
 });
 
-app.get("/employees", async (req, res) => {
+app.get("/users", async (req, res) => {
   try {
-    const collection = db.collection("employees");
-    const employees = await collection.find().toArray();
-    res.json(employees);
+    const users = await User.find();
+    res.json(users);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.get("/employees/:id", async (req, res) => {
+app.get("/users/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
-    const collection = db.collection("employees");
-    const employee = await collection.findOne({
-      _id: new ObjectId(id)
-    });
-    res.json(employee);
+    const user = await User.findById(id);
+    res.json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-app.post("/employees", async (req, res) => {
+app.post("/users", async (req, res) => {
   try {
-    const { fullName, salary, department } = req.body;
+    const { username, email, age } = req.body;
 
-    if (!fullName || !salary || !department) {
-      return res.status(400).json({ error: "Заполните все поля" });
-    }
+    const newUser = new User({ username, email, age });
+    const result = await newUser.save();
+    res
+      .status(201)
+      .json({ message: "Новый пользователь был успешно создан", user: result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
-    const collection = db.collection("employees");
+app.patch("/users/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { username, email, age } = req.body;
 
-    const employee = await collection.insertOne({
-      fullName,
-      salary,
-      department
-    });
-    res.json({ message: "Новый работчик был успешно создан", employee });
+    const result = await User.findByIdAndUpdate(
+      id,
+      { username, email, age },
+      { new: true }
+    );
+    res.json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
